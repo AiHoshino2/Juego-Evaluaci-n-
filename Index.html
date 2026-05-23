@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Aurora: Control de Abordaje</title>
+  <style>
+    :root {
+      --black: #050403;
+      --charcoal: #0b0908;
+      --coal: #15100d;
+      --rust: #a3552b;
+      --rust-2: #6d321f;
+      --amber: #d0934f;
+      --bone: #f2e7da;
+      --paper: #d8c7b3;
+      --muted: #a99782;
+      --ash: #74685c;
+      --olive: #8b9160;
+      --olive-dark: #454a35;
+      --blood: #8f2f29;
+      --blood-2: #4a1512;
+      --line: rgba(231, 202, 169, 0.13);
+      --line-strong: rgba(231, 202, 169, 0.22);
+      --glass: rgba(16, 12, 10, 0.74);
+      --glass-strong: rgba(8, 6, 5, 0.88);
+      --shadow: 0 30px 120px rgba(0, 0, 0, 0.66);
+      --radius-xl: 34px;
+      --radius-lg: 24px;
+      --radius-md: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      min-height: 100%;
+      background: var(--black);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--bone);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      overflow-x: hidden;
+      background:
+        radial-gradient(circle at 46% -10%, rgba(163, 85, 43, 0.18), transparent 35%),
+        radial-gradient(circle at 12% 16%, rgba(240, 210, 176, 0.055), transparent 24%),
+        linear-gradient(180deg, #15100d 0%, #090706 50%, #030303 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -5;
+      background:
+        linear-gradient(180deg, transparent 0 58%, rgba(0, 0, 0, 0.86) 100%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 112px);
+      opacity: 0.72;
+    }
+
+    .fog-scene {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -4;
+    }
+
+    .fog {
+      position: absolute;
+      top: -24%;
+      left: -60%;
+      width: 190%;
+      height: 150%;
+      opacity: 0.62;
+      filter: blur(28px);
+      will-change: transform, opacity;
+      transform: translate3d(0, 0, 0);
+      mix-blend-mode: screen;
+    }
+
+    .fog-a {
+      background:
+        radial-gradient(circle at 16% 35%, rgba(234, 222, 207, 0.16), transparent 22%),
+        radial-gradient(circle at 42% 44%, rgba(145, 132, 119, 0.12), transparent 26%),
+        radial-gradient(circle at 76% 25%, rgba(213, 181, 148, 0.09), transparent 20%),
+        linear-gradient(92deg, transparent 0 30%, rgba(240, 230, 218, 0.11) 47%, transparent 68%);
+      animation: fogRightFast 22s linear infinite;
+    }
+
+    .fog-b {
+      top: -18%;
+      opacity: 0.46;
+      filter: blur(46px);
+      background:
+        radial-gradient(circle at 18% 70%, rgba(235, 225, 212, 0.13), transparent 26%),
+        radial-gradient(circle at 68% 62%, rgba(190, 160, 120, 0.12), transparent 24%),
+        linear-gradient(82deg, transparent 0 28%, rgba(255, 245, 233, 0.09) 52%, transparent 74%);
+      animation: fogRightSlow 34s linear infinite;
+    }
+
+    .fog-c {
+      top: 42%;
+      left: -45%;
+      height: 66%;
+      opacity: 0.35;
+      filter: blur(16px);
+      background:
+        repeating-linear-gradient(0deg, transparent 0 18px, rgba(255,255,255,0.032) 19px 21px, transparent 22px 52px),
+        linear-gradient(90deg, transparent, rgba(235, 224, 212, 0.08), transparent);
+      animation: fogRightLow 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes fogRightFast {
+      from { transform: translate3d(-14%, 0, 0) scale(1.05); }
+      to { transform: translate3d(16%, 2%, 0) scale(1.12); }
+    }
+
+    @keyframes fogRightSlow {
+      from { transform: translate3d(-20%, 2%, 0) scale(1.08); }
+      to { transform: translate3d(18%, -1%, 0) scale(1.18); }
+    }
+
+    @keyframes fogRightLow {
+      from { transform: translate3d(-8%, 4%, 0); opacity: 0.24; }
+      to { transform: translate3d(10%, -2%, 0); opacity: 0.42; }
+    }
+
+    .app {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      padding: clamp(14px, 3vw, 38px);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hidden { display: none !important; }
+
+    .shell {
+      width: 100%;
+      min-height: min(850px, calc(100vh - 28px));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(180deg, rgba(28, 19, 14, 0.78), rgba(5, 4, 3, 0.88)),
+        rgba(0, 0, 0, 0.28);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 239, 215, 0.055);
+      backdrop-filter: blur(22px) saturate(0.88);
+      -webkit-backdrop-filter: blur(22px) saturate(0.88);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(110deg, transparent 0 35%, rgba(208, 147, 79, 0.055) 48%, transparent 62%),
+        radial-gradient(circle at 50% 0%, rgba(163, 85, 43, 0.12), transparent 34%);
+      opacity: 0.95;
+    }
+
+    .shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 4px);
+      mix-blend-mode: overlay;
+      opacity: 0.16;
+    }
+
+    .screen {
+      min-height: min(850px, calc(100vh - 28px));
+      position: relative;
+      z-index: 1;
+      padding: clamp(20px, 4vw, 46px);
+      animation: screenIn 480ms cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    @keyframes screenIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.992); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .intro-grid,
+    .play-grid,
+    .review-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.94fr) minmax(340px, 1.06fr);
+      gap: clamp(22px, 4vw, 52px);
+      align-items: center;
+      min-height: calc(min(850px, 100vh) - 120px);
+    }
+
+    .intro-right {
+      display: grid;
+      gap: 16px;
+    }
+
+    .eyebrow,
+    .warning-label,
+    .progress-text,
+    .mini-title {
+      color: var(--amber);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+      background: rgba(208, 147, 79, 0.10);
+      border: 1px solid rgba(208, 147, 79, 0.20);
+      box-shadow: inset 0 1px 0 rgba(255, 235, 207, 0.06);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: clamp(3rem, 8vw, 6.4rem);
+      line-height: 0.88;
+      letter-spacing: -0.085em;
+      color: #fff4e8;
+      text-wrap: balance;
+    }
+
+    h1 span,
+    h2 span {
+      color: var(--amber);
+      text-shadow: 0 0 24px rgba(208, 147, 79, 0.24);
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: clamp(2.1rem, 4.6vw, 4rem);
+      line-height: 0.96;
+      letter-spacing: -0.065em;
+      color: #fff4e8;
+      text-wrap: balance;
+    }
+
+    h3 {
+      margin-bottom: 10px;
+      font-size: clamp(1.35rem, 2vw, 1.75rem);
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+      color: #fff2e5;
+    }
+
+    .lead {
+      max-width: 68ch;
+      color: var(--paper);
+      font-size: clamp(1rem, 1.8vw, 1.17rem);
+      line-height: 1.72;
+    }
+
+    .lead strong { color: #fff2e5; }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(180deg, rgba(255, 235, 210, 0.035), rgba(255, 255, 255, 0.012)),
+        rgba(0, 0, 0, 0.20);
+      box-shadow: inset 0 1px 0 rgba(255, 239, 215, 0.045);
+    }
+
+    .lore-card,
+    .case-card,
+    .review-copy,
+    .end-card {
+      padding: clamp(19px, 3vw, 30px);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 22px 0;
+    }
+
+    .stat {
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 18px;
+      padding: 16px 12px;
+      background: rgba(0,0,0,0.24);
+    }
+
+    .stat b {
+      display: block;
+      color: #fff5e9;
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .stat small {
+      color: var(--muted);
+      font-size: 0.71rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .warning-card {
+      position: relative;
+      min-height: 150px;
+      overflow: hidden;
+      padding: clamp(22px, 3vw, 32px);
+      border: 1px solid rgba(208, 147, 79, 0.26);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(135deg, rgba(83, 51, 29, 0.72), rgba(12, 9, 7, 0.92)),
+        radial-gradient(circle at 22% 20%, rgba(208, 147, 79, 0.18), transparent 34%);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,235,210,0.075);
+      animation: badLight 3.8s infinite;
+    }
+
+    .warning-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, transparent, rgba(255, 219, 162, 0.12), transparent),
+        repeating-linear-gradient(0deg, transparent 0 14px, rgba(255,255,255,0.026) 15px 16px);
+      opacity: 0.48;
+      animation: lightSweep 4.6s infinite;
+    }
+
+    .warning-card p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      color: #fff2e3;
+      font-size: clamp(1.35rem, 2.35vw, 2.08rem);
+      line-height: 1.1;
+      font-weight: 950;
+      letter-spacing: -0.045em;
+      text-wrap: balance;
+    }
+
+    .warning-card strong {
+      color: #f1b25f;
+      text-shadow: 0 0 18px rgba(241,178,95,0.34);
+    }
+
+    @keyframes badLight {
+      0%, 8%, 13%, 21%, 100% { opacity: 1; filter: brightness(1); }
+      10%, 19% { opacity: 0.76; filter: brightness(0.72); }
+      11%, 20% { opacity: 1; filter: brightness(1.20); }
+      66% { box-shadow: 0 20px 50px rgba(0,0,0,0.36), 0 0 42px rgba(208,147,79,0.22), inset 0 1px 0 rgba(255,235,210,0.10); }
+    }
+
+    @keyframes lightSweep {
+      0%, 38%, 100% { transform: translateX(-38%); opacity: 0.20; }
+      46% { transform: translateX(22%); opacity: 0.68; }
+      52% { transform: translateX(38%); opacity: 0.28; }
+    }
+
+    .btn {
+      border: 0;
+      appearance: none;
+      cursor: pointer;
+      user-select: none;
+      min-height: 54px;
+      border-radius: 18px;
+      padding: 16px 20px;
+      color: var(--bone);
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: -0.015em;
+      transition: transform 180ms ease, filter 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      touch-action: manipulation;
+    }
+
+    .btn:disabled {
+      cursor: wait;
+      opacity: 0.68;
+    }
+
+    .btn:focus-visible {
+      outline: 3px solid rgba(208,147,79,0.34);
+      outline-offset: 3px;
+    }
+
+    .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+    .btn:active:not(:disabled) { transform: translateY(0) scale(0.985); }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, #9f542e, #62301e);
+      box-shadow: 0 16px 38px rgba(127, 64, 34, 0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .btn-human {
+      background: linear-gradient(135deg, rgba(139,145,96,0.28), rgba(61,65,42,0.40));
+      border: 1px solid rgba(139,145,96,0.38);
+      box-shadow: 0 16px 34px rgba(68, 74, 48, 0.16), inset 0 1px 0 rgba(255,255,255,0.05);
+      color: #edf0d8;
+    }
+
+    .btn-impostor {
+      background: linear-gradient(135deg, rgba(143,47,41,0.40), rgba(74,21,18,0.48));
+      border: 1px solid rgba(143,47,41,0.46);
+      box-shadow: 0 16px 34px rgba(78, 22, 18, 0.22), inset 0 1px 0 rgba(255,255,255,0.05);
+      color: #ffe1db;
+    }
+
+    .btn-ghost {
+      width: 100%;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .seal-pill {
+      color: #f7eadc;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.055);
+      font-size: 0.82rem;
+      font-weight: 850;
+    }
+
+    .meter {
+      height: 10px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255,255,255,0.065);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.055);
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--rust-2), var(--amber));
+      transition: width 300ms ease;
+    }
+
+    .portrait-stage,
+    .review-stage {
+      position: relative;
+      min-height: 640px;
+      display: grid;
+      align-items: end;
+      overflow: hidden;
+      isolation: isolate;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background:
+        radial-gradient(circle at 50% 18%, rgba(163,85,43,0.12), transparent 34%),
+        linear-gradient(180deg, #17120f, #060504);
+      box-shadow: inset 0 1px 0 rgba(255,239,215,0.045);
+    }
+
+    .portrait-stage::before,
+    .review-stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, transparent 38%, rgba(0,0,0,0.84)),
+        radial-gradient(circle at 50% 86%, rgba(163,85,43,0.10), transparent 38%);
+    }
+
+    .portrait-stage::after,
+    .review-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0.16;
+      mix-blend-mode: overlay;
+      background: repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 4px);
+    }
+
+    .character-img,
+    .review-img {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center top;
+      background: #111;
+      opacity: 0;
+      transform: scale(1.018);
+      transition: opacity 340ms ease, transform 560ms cubic-bezier(.2,.8,.2,1), filter 420ms ease;
+      will-change: opacity, transform, filter;
+    }
+
+    .character-img.show,
+    .review-img.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .character-img.boarding {
+      opacity: 0;
+      transform: translateX(34%) scale(0.96);
+      filter: saturate(0.95) brightness(1.02);
+    }
+
+    .character-img.denied {
+      opacity: 0;
+      transform: translateX(-12%) scale(0.93) rotate(-1.5deg);
+      filter: grayscale(0.70) contrast(1.28) brightness(0.70);
+    }
+
+    .fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      padding: 26px;
+      color: var(--muted);
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 25%, rgba(143,47,41,0.12), transparent 30%),
+        linear-gradient(180deg, #17120f, #080706);
+    }
+
+    .fallback strong {
+      display: block;
+      color: var(--bone);
+      margin-bottom: 10px;
+    }
+
+    .portrait-info,
+    .review-photo-info {
+      position: relative;
+      z-index: 3;
+      padding: 22px;
+      text-align: left;
+    }
+
+    .name-row {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .name-row h2 {
+      margin: 0;
+      font-size: clamp(1.9rem, 4vw, 3.1rem);
+    }
+
+    .age {
+      flex: 0 0 auto;
+      color: #f3d2a3;
+      font-weight: 900;
+      font-size: 0.9rem;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(208,147,79,0.11);
+      border: 1px solid rgba(208,147,79,0.15);
+    }
+
+    .description {
+      margin-bottom: 0;
+      color: #eadfce;
+      line-height: 1.58;
+      text-shadow: 0 2px 18px rgba(0,0,0,0.74);
+    }
+
+    .case-card p,
+    .review-copy p,
+    .end-card p {
+      color: var(--paper);
+      line-height: 1.66;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .decision-flash {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.98);
+    }
+
+    .decision-flash.active { animation: flashDecision 620ms ease both; }
+
+    .decision-flash b {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 12px 18px;
+      background: rgba(0,0,0,0.62);
+      box-shadow: 0 18px 50px rgba(0,0,0,0.46);
+      font-size: clamp(0.95rem, 2vw, 1.2rem);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .decision-flash.safe b { color: #e8eccb; }
+    .decision-flash.reject b { color: #ffc2bb; }
+
+    @keyframes flashDecision {
+      0% { opacity: 0; transform: scale(0.94); }
+      14% { opacity: 1; transform: scale(1); }
+      78% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.04); }
+    }
+
+    .shake { animation: shake 480ms ease both; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(7px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .review-screen-title {
+      margin-bottom: 18px;
+    }
+
+    .review-stage {
+      min-height: 680px;
+    }
+
+    .review-copy {
+      min-height: 420px;
+      display: grid;
+      align-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .review-copy::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.22;
+      background: radial-gradient(circle at 50% 18%, rgba(208,147,79,0.16), transparent 36%);
+    }
+
+    .review-copy > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .review-choice-line {
+      margin-bottom: 18px;
+      color: #fff1e4;
+      font-size: clamp(1.25rem, 2.6vw, 2.2rem);
+      line-height: 1.08;
+      font-weight: 950;
+      letter-spacing: -0.045em;
+    }
+
+    .review-choice-line span {
+      color: var(--amber);
+      text-shadow: 0 0 18px rgba(208,147,79,0.24);
+    }
+
+    .suspense-text {
+      margin: 0;
+      color: #fff6ec;
+      font-size: clamp(2.1rem, 5vw, 5rem);
+      line-height: 0.96;
+      font-weight: 950;
+      letter-spacing: -0.07em;
+      animation: pulseWait 850ms ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseWait {
+      from { opacity: 0.60; transform: translateY(0); filter: blur(0.1px); }
+      to { opacity: 1; transform: translateY(-2px); filter: blur(0); }
+    }
+
+    .reveal-box {
+      display: none;
+      animation: revealIn 560ms cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .reveal-box.show { display: block; }
+
+    @keyframes revealIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .verdict {
+      display: inline-flex;
+      width: fit-content;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.82rem;
+      font-weight: 950;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.055);
+    }
+
+    .verdict.correct { color: #e7ebc8; border-color: rgba(139,145,96,0.36); background: rgba(139,145,96,0.10); }
+    .verdict.incorrect { color: #ffc8c2; border-color: rgba(143,47,41,0.40); background: rgba(143,47,41,0.12); }
+
+    .truth-title {
+      margin-bottom: 10px;
+      font-size: clamp(1.8rem, 4vw, 3.8rem);
+      line-height: 0.98;
+      font-weight: 950;
+      letter-spacing: -0.07em;
+      color: #fff4e8;
+      text-wrap: balance;
+    }
+
+    .truth-title span.human { color: #dfe8b0; }
+    .truth-title span.impostor { color: #ffb4ac; }
+
+    .reason-box {
+      margin: 16px 0 22px;
+      padding: 16px 18px;
+      border-left: 4px solid var(--amber);
+      border-radius: 16px;
+      background: rgba(0,0,0,0.26);
+      color: var(--paper);
+      line-height: 1.58;
+    }
+
+    .review-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .review-counter {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 5;
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: #f7eadc;
+      background: rgba(0,0,0,0.48);
+      border: 1px solid rgba(255,255,255,0.10);
+      font-size: 0.8rem;
+      font-weight: 850;
+    }
+
+    .end-wrap {
+      min-height: calc(min(850px, 100vh) - 120px);
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .end-card {
+      max-width: 780px;
+      width: 100%;
+    }
+
+    .end-card .btn { margin-top: 16px; }
+
+    @media (max-width: 900px) {
+      .intro-grid,
+      .play-grid,
+      .review-grid {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .portrait-stage,
+      .review-stage {
+        min-height: min(78vh, 660px);
+      }
+
+      .review-copy {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 580px) {
+      .app { padding: 10px; place-items: start center; }
+      .shell, .screen { min-height: calc(100vh - 20px); }
+      .shell { border-radius: 22px; }
+      .screen { padding: 16px; }
+      .lore-card, .case-card, .review-copy, .end-card { padding: 18px; }
+      .panel, .portrait-stage, .review-stage, .warning-card { border-radius: 20px; }
+      .stats { grid-template-columns: 1fr; }
+      .choices { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .portrait-stage, .review-stage { min-height: 74vh; }
+      .portrait-info, .review-photo-info { padding: 16px; }
+      .name-row { align-items: flex-start; flex-direction: column; }
+      h1 { font-size: clamp(3rem, 16vw, 4.5rem); }
+      .fog { filter: blur(24px); opacity: 0.42; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="fog-scene" aria-hidden="true">
+    <div class="fog fog-a"></div>
+    <div class="fog fog-b"></div>
+    <div class="fog fog-c"></div>
+  </div>
+
+  <main class="app">
+    <section class="shell" aria-live="polite">
+      <div id="screenIntro" class="screen">
+        <div class="intro-grid">
+          <div>
+            <div class="eyebrow">Puerto Aurora · Zona de cuarentena</div>
+            <h1>Control de <span>Abordaje</span></h1>
+            <p class="lead">
+              Un barco llamado <strong>Aurora</strong> está por salir del puerto después de que una niebla extraña cubrió la ciudad.
+              Solo hay espacio para <strong>5 personas reales</strong>. Frente a ti llegan 10 sobrevivientes, pero se sabe que 5 son impostores:
+              seres que copian cuerpos, nombres y recuerdos recientes.
+            </p>
+            <p class="lead">
+              No se delatan por verse monstruosos. Fallan en detalles pequeños: contradicciones, emociones mal imitadas o recuerdos que no conectan.
+            </p>
+            <button id="startBtn" class="btn btn-primary">Iniciar inspección</button>
+          </div>
+
+          <div class="intro-right">
+            <aside class="panel lore-card">
+              <div class="mini-title">Tu trabajo</div>
+              <p>
+                Lee cada caso con cuidado. Decide si esa persona debe abordar o si debe ser rechazada antes de entrar al barco.
+                Al final revisarás expediente por expediente, sin un marcador que arruine la tensión.
+              </p>
+              <div class="stats">
+                <div class="stat"><b>10</b><small>sobrevivientes</small></div>
+                <div class="stat"><b>5</b><small>humanos</small></div>
+                <div class="stat"><b>5</b><small>impostores</small></div>
+              </div>
+              <p style="margin-bottom:0;"> :D </p>
+            </aside>
+
+            <div class="warning-card" role="note" aria-label="Recordatorio de evaluación">
+              <div class="warning-label">Aviso del muelle</div>
+              <p>Recuerda <strong>EVALUAR</strong> y no decidir por impulso. Suerte</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="screenGame" class="screen hidden">
+        <div class="topbar">
+          <div id="progressText" class="progress-text">Sobreviviente 1 de 10</div>
+          <div id="liveSeal" class="seal-pill">Registro sellado</div>
+        </div>
+
+        <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
+
+        <div class="play-grid">
+          <section id="portraitStage" class="portrait-stage">
+            <div class="fallback">
+              <div>
+                <strong>Imagen no encontrada</strong>
+                Revisa que el PNG esté en la misma carpeta que este index.html.
+              </div>
+            </div>
+            <img id="characterImage" class="character-img" alt="Retrato del sobreviviente actual" decoding="async" fetchpriority="high" />
+            <div id="decisionFlash" class="decision-flash"><b></b></div>
+
+            <div class="portrait-info">
+              <div class="name-row">
+                <h2 id="characterName">Nombre</h2>
+                <span id="characterAge" class="age">00 años</span>
+              </div>
+              <p id="characterDescription" class="description"></p>
+            </div>
+          </section>
+
+          <aside class="panel case-card">
+            <div class="eyebrow">Evaluación psicológica</div>
+            <h2>¿Puede subir al <span>barco</span>?</h2>
+            <div class="mini-title">Pista clave</div>
+            <p id="characterClue"></p>
+            <div class="mini-title">Recuerda</div>
+            <p>
+              No juzgues solo por miedo, culpa o frialdad. Un humano puede verse raro por estrés.
+              Un impostor puede verse útil, tranquilo y perfectamente normal.
+            </p>
+
+            <div class="choices">
+              <button id="humanBtn" class="btn btn-human">Permitir abordaje</button>
+              <button id="impostorBtn" class="btn btn-impostor">Rechazar impostor</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="screenReview" class="screen hidden">
+        <div class="topbar review-screen-title">
+          <div id="reviewProgress" class="progress-text">Revisión 1 de 10</div>
+          <div class="seal-pill">Expediente abierto</div>
+        </div>
+
+        <div class="review-grid">
+          <section class="review-stage">
+            <div id="reviewCounter" class="review-counter">Caso 1/10</div>
+            <div class="fallback">
+              <div>
+                <strong>Imagen no encontrada</strong>
+                Revisa el nombre del archivo PNG.
+              </div>
+            </div>
+            <img id="reviewImage" class="review-img" alt="Retrato del expediente en revisión" decoding="async" />
+            <div class="review-photo-info">
+              <div class="name-row">
+                <h2 id="reviewName">Nombre</h2>
+                <span id="reviewAge" class="age">00 años</span>
+              </div>
+            </div>
+          </section>
+
+          <aside class="panel review-copy">
+            <div class="mini-title">Tu decisión</div>
+            <div id="reviewChoice" class="review-choice-line">Dijiste que era humano.</div>
+            <p id="suspenseText" class="suspense-text">Estabas...</p>
+
+            <div id="revealBox" class="reveal-box">
+              <div id="verdict" class="verdict">Resultado</div>
+              <div id="truthTitle" class="truth-title">Era humano.</div>
+              <div id="reasonBox" class="reason-box"></div>
+              <div class="review-actions">
+                <button id="nextReviewBtn" class="btn btn-primary">Ver siguiente expediente</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="screenEnd" class="screen hidden">
+        <div class="end-wrap">
+          <div class="panel end-card">
+            <div class="eyebrow">Reporte cerrado</div>
+            <h2>El barco desaparece entre la <span>niebla</span></h2>
+            <p class="lead" style="margin-left:auto;margin-right:auto;">
+              Terminaste la revisión completa. El juego no muestra puntuación final para que la experiencia siga siendo de evaluación,
+              análisis y duda, no de simple marcador.
+            </p>
+            <button id="restartBtn" class="btn btn-primary">Jugar otra vez</button>
+            <button id="introBtn" class="btn btn-ghost" style="margin-top:12px;">Volver al inicio</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const characters = [
+      {
+        name: "Juan Andrade",
+        age: 34,
+        imageNames: ["Juan Andrade.png", "JUAN ANDRADE.png", "juan andrade.png", "Juan_Andrade.png"],
+        isImpostor: true,
+        description: "Dice ser pescador desde niño. Lleva una chamarra impermeable verde, botas gastadas y una mochila pequeña con una brújula vieja y una foto doblada de una niña con una cometa roja. Habla con calma incluso cuando todos están alterados.",
+        clue: "Cuenta que estaba revisando redes cerca del muelle cuando llegó la niebla. Dice que perdió a su hermano menor durante el caos y que solo quiere subir al barco para pedir ayuda. Parece amable, pero al preguntarle por su hermano duda demasiado antes de responder.",
+        ifPlayerSaidImpostor: "Correcto. Juan parecía confiable, pero sus recuerdos personales no eran sólidos. Habló de su hermano como si conociera el dato, pero no el vínculo real. Además, para alguien que presume conocer el mar toda su vida, sus descripciones fueron demasiado vacías y poco naturales.",
+        ifPlayerSaidHuman: "Incorrecto. Juan estaba bien construido para parecer normal: amable, calmado y útil. Pero cuando habló de su hermano dudó en algo demasiado íntimo, y su forma de describir su vida como pescador no tenía la naturalidad de alguien que de verdad la ha vivido."
+      },
+      {
+        name: "Marisol Vega",
+        age: 29,
+        imageNames: ["Marisol Vega.png", "MARISOL VEGA.png", "marisol vega.png", "Marisol_Vega.png"],
+        isImpostor: false,
+        description: "Dice ser enfermera. Lleva uniforme azul, una mochila médica y una credencial rota. No se muestra cariñosa, pero revisa heridas, acomoda vendas y da instrucciones con firmeza para que la gente no entre en pánico.",
+        clue: "Dice que estaba ayudando en una farmacia cuando la niebla cubrió la calle. Parece fría y poco expresiva, pero recuerda con precisión qué materiales usó y en qué orden atendió a los heridos.",
+        ifPlayerSaidImpostor: "Incorrecto. Marisol parecía sospechosa porque era fría y poco emocional, pero eso no era una falla de identidad: era una reacción profesional. En lugar de consolar con palabras, actuaba con método y control.",
+        ifPlayerSaidHuman: "Correcto. Aunque parecía distante y difícil de leer, sus acciones eran consistentes. No improvisaba respuestas para agradar, sino que hablaba como alguien acostumbrado a emergencias."
+      },
+      {
+        name: "Bruno Salcedo",
+        age: 41,
+        imageNames: ["Bruno Salcedo.png", "BRUNO SALCEDO.png", "bruno salcedo.png", "Bruno_Salcedo.png"],
+        isImpostor: true,
+        description: "Dice ser maestro de primaria. Lleva lentes rayados, una camisa café y una carpeta con dibujos infantiles. Habla en voz baja y asegura que estaba cuidando a varios niños cuando la niebla separó al grupo.",
+        clue: "Quiere subir al barco para buscar ayuda y volver por los niños. Cuando le preguntan nombres de sus alumnos se traba, pero recuerda muy bien dónde se sentaba cada uno en el salón.",
+        ifPlayerSaidImpostor: "Correcto. Bruno conocía detalles de estructura, pero no de relación humana. Recordaba posiciones y orden, pero no lograba sostener con naturalidad la identidad de los niños que supuestamente cuidaba.",
+        ifPlayerSaidHuman: "Incorrecto. Bruno sonaba compasivo y vulnerable, y eso lo hacía creíble. Pero sus recuerdos estaban acomodados como datos observados, no como recuerdos vividos."
+      },
+      {
+        name: "Elena Ríos",
+        age: 52,
+        imageNames: ["Elena Ríos.png", "ELENA RÍOS.png", "Elena Rios.png", "ELENA RIOS.png", "elena rios.png", "Elena_Rios.png"],
+        isImpostor: false,
+        description: "Dice ser cocinera de una fonda. Lleva ropa sencilla, una bolsa con un mandil doblado y una libreta de recetas vieja. Habla mucho cuando se pone nerviosa y admite que robó comida de una tienda abandonada.",
+        clue: "Cuenta que se escondió en la cocina cuando empezó todo. Parece culpable y ansiosa, pero recuerda detalles tontos de su vida, como una olla de mole que una vez dejó quemar y por la que su familia todavía se burla.",
+        ifPlayerSaidImpostor: "Incorrecto. Elena sí hizo cosas cuestionables, y por eso parecía sospechosa. Pero ser moralmente imperfecta no la convierte en impostora. Sus recuerdos tienen vergüenza, detalle y espontaneidad.",
+        ifPlayerSaidHuman: "Correcto. Aunque parecía desordenada y culpable, justamente eso la hacía más real. No intentó verse buena ni heroica. Habló como una persona asustada que hizo lo necesario para sobrevivir."
+      },
+      {
+        name: "Mateo Cárdenas",
+        age: 23,
+        imageNames: ["Mateo Cárdenas.png", "MATEO CÁRDENAS.png", "Mateo Cardenas.png", "MATEO CARDENAS.png", "mateo cardenas.png", "Mateo_Cardenas.png"],
+        isImpostor: true,
+        description: "Dice ser estudiante de ingeniería. Lleva una sudadera negra, una laptop sin batería y una mochila con cables y herramientas pequeñas. Habla rápido y ofrece ayuda con radios, motores y sistemas eléctricos.",
+        clue: "Dice que revisaba cámaras de seguridad cuando vio movimientos extraños entre la niebla. Evita mirar mucho a los ojos y responde bien sobre su universidad, pero tarda demasiado en decir su propia carrera.",
+        ifPlayerSaidImpostor: "Correcto. Mateo parecía muy preparado, pero también demasiado optimizado para convencer. Ofrecía justo las habilidades que el grupo necesitaba, pero falló en algo básico y personal: su propia carrera.",
+        ifPlayerSaidHuman: "Incorrecto. Su nerviosismo podía confundirse con timidez real, y su perfil resultaba útil. Pero parecía valioso, no verdadero. Sabía vender su utilidad mejor de lo que sostenía su propia historia."
+      },
+      {
+        name: "Camila Torres",
+        age: 31,
+        imageNames: ["Camila Torres.png", "CAMILA TORRES.png", "camila torres.png", "Camila_Torres.png"],
+        isImpostor: false,
+        description: "Dice ser fotógrafa de eventos. Lleva una chamarra roja sucia, una cámara vieja colgada al cuello y una mochila ligera. Dice que estaba cubriendo una fiesta cuando la niebla entró al lugar.",
+        clue: "Guarda silencio cuando le preguntan a quién dejó atrás, pero después admite que huyó sin ayudar a una persona que se había caído. Parece culpable y no intenta justificarse.",
+        ifPlayerSaidImpostor: "Incorrecto. Camila parecía sospechosa porque escondía algo y tardó en decirlo, pero lo que ocultaba era culpa, no una identidad falsa. Confesó algo que la dejaba mal frente a todos.",
+        ifPlayerSaidHuman: "Correcto. A pesar de su cobardía, sus emociones eran coherentes. No intentaba manipular al grupo; asumió un error que podía condenarla. Eso la vuelve imperfecta, pero creíble."
+      },
+      {
+        name: "Darío Méndez",
+        age: 46,
+        imageNames: ["Darío Méndez.png", "DARÍO MÉNDEZ.png", "Dario Mendez.png", "DARIO MENDEZ.png", "dario mendez.png", "Dario_Mendez.png"],
+        isImpostor: true,
+        description: "Dice ser mecánico. Lleva una camisa de mezclilla, manos manchadas de grasa y una caja pequeña de herramientas. Habla poco, pero asegura que puede revisar el motor del barco si falla.",
+        clue: "Dice que su taller estaba cerca del puerto. Parece práctico y confiado, aunque cuando le preguntan qué herramienta usa más responde de forma extraña y luego se corrige demasiado rápido.",
+        ifPlayerSaidImpostor: "Correcto. Darío tenía la imagen perfecta de un mecánico, pero su conocimiento no fluía con naturalidad. Su corrección apresurada reveló que estaba reaccionando al error, no hablando desde costumbre real.",
+        ifPlayerSaidHuman: "Incorrecto. Era fácil confiar en él porque parecía útil y experimentado. Sin embargo, su identidad estaba más apoyada en apariencia y función que en memoria auténtica."
+      },
+      {
+        name: "Sofía Beltrán",
+        age: 19,
+        imageNames: ["Sofía Beltrán.png", "SOFÍA BELTRÁN.png", "Sofia Beltran.png", "SOFIA BELTRAN.png", "sofia beltran.png", "Sofia_Beltran.png"],
+        isImpostor: false,
+        description: "Dice trabajar en una panadería con su tía. Lleva una sudadera rosa, una mochila pequeña y manchas de harina en las mangas. Está visiblemente asustada y pregunta varias veces si el barco es seguro.",
+        clue: "Dice que se escondió en el baño del negocio hasta que todo se calmó. Su miedo desespera a algunos, pero al hablar de la panadería recuerda el olor del horno, el precio del pan y las canciones de su tía.",
+        ifPlayerSaidImpostor: "Incorrecto. Sofía parecía sospechosa porque su miedo era excesivo y repetitivo, pero eso no es una contradicción, es pánico. Sus recuerdos tenían olor, rutina y costumbre.",
+        ifPlayerSaidHuman: "Correcto. A pesar de lo nerviosa que estaba, sus recuerdos se sostenían con naturalidad. No intentaba convencer con utilidad ni perfección; reaccionaba como alguien joven y saturada."
+      },
+      {
+        name: "Ricardo Nájera",
+        age: 38,
+        imageNames: ["Ricardo Nájera.png", "RICARDO NÁJERA.png", "Ricardo Najera.png", "RICARDO NAJERA.png", "ricardo najera.png", "Ricardo_Najera.png"],
+        isImpostor: true,
+        description: "Dice ser guardia de seguridad. Lleva uniforme oscuro, una lámpara sin pila y una libreta con reportes. Habla con autoridad y trata de ordenar la fila, como si necesitara recuperar el control.",
+        clue: "Dice que vio a un impostor cerca de la entrada del puerto, pero no logra describirlo con claridad. Afirma que su turno empezó a las diez de la noche, aunque en otro momento menciona haber visto el atardecer desde la caseta.",
+        ifPlayerSaidImpostor: "Correcto. Ricardo parecía seguro de sí mismo, pero su historia tenía una contradicción concreta en el tiempo. Además, intentó ganar autoridad rápidamente, como si quisiera dirigir la decisión.",
+        ifPlayerSaidHuman: "Incorrecto. Su tono firme podía inspirar confianza. Pero esa autoridad escondía una inconsistencia clave: sus recuerdos no encajaban entre sí cuando se les prestaba atención."
+      },
+      {
+        name: "Valeria Soto",
+        age: 27,
+        imageNames: ["Valeria Soto.png", "VALERIA SOTO.png", "valeria soto.png", "Valeria_Soto.png"],
+        isImpostor: false,
+        description: "Dice ser cantante en bares pequeños. Lleva botas negras, una chamarra brillante y una libreta con letras de canciones. Habla poco y parece demasiado tranquila para todo lo que está ocurriendo.",
+        clue: "Dice que estaba cantando cuando la niebla apagó las luces. Al preguntarle por qué no parece más alterada, responde que de niña aprendió a no llorar frente a desconocidos. Intenta tararear una canción suya, se equivoca y se ríe con pena.",
+        ifPlayerSaidImpostor: "Incorrecto. Valeria parecía rara porque no reaccionaba con el miedo visible que todos esperaban. Pero una reacción distinta no es una contradicción. Sus pequeños errores al cantar la hacían más humana.",
+        ifPlayerSaidHuman: "Correcto. Aunque su tranquilidad podía incomodar, sus respuestas no estaban diseñadas para manipular. Mostraba control, no falsedad. Sus fallos naturales daban la impresión de una persona real."
+      }
+    ];
+
+    const $ = (selector) => document.querySelector(selector);
+
+    const screenIntro = $("#screenIntro");
+    const screenGame = $("#screenGame");
+    const screenReview = $("#screenReview");
+    const screenEnd = $("#screenEnd");
+    const startBtn = $("#startBtn");
+    const restartBtn = $("#restartBtn");
+    const introBtn = $("#introBtn");
+    const humanBtn = $("#humanBtn");
+    const impostorBtn = $("#impostorBtn");
+    const nextReviewBtn = $("#nextReviewBtn");
+    const progressText = $("#progressText");
+    const liveSeal = $("#liveSeal");
+    const meterFill = $("#meterFill");
+    const characterImage = $("#characterImage");
+    const characterName = $("#characterName");
+    const characterAge = $("#characterAge");
+    const characterDescription = $("#characterDescription");
+    const characterClue = $("#characterClue");
+    const portraitStage = $("#portraitStage");
+    const decisionFlash = $("#decisionFlash");
+    const reviewProgress = $("#reviewProgress");
+    const reviewCounter = $("#reviewCounter");
+    const reviewImage = $("#reviewImage");
+    const reviewName = $("#reviewName");
+    const reviewAge = $("#reviewAge");
+    const reviewChoice = $("#reviewChoice");
+    const suspenseText = $("#suspenseText");
+    const revealBox = $("#revealBox");
+    const verdict = $("#verdict");
+    const truthTitle = $("#truthTitle");
+    const reasonBox = $("#reasonBox");
+
+    let currentIndex = 0;
+    let reviewIndex = 0;
+    let choices = [];
+    let locked = false;
+    let revealTimer = null;
+    let audioContext = null;
+
+    function showOnly(screen) {
+      [screenIntro, screenGame, screenReview, screenEnd].forEach((item) => item.classList.add("hidden"));
+      screen.classList.remove("hidden");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function unlockAudio() {
+      if (!audioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) audioContext = new AudioCtx();
+      }
+      if (audioContext && audioContext.state === "suspended") audioContext.resume();
+    }
+
+    function playTone(type) {
+      if (!audioContext) return;
+      const now = audioContext.currentTime;
+      const master = audioContext.createGain();
+      master.connect(audioContext.destination);
+      master.gain.setValueAtTime(0.001, now);
+
+      if (type === "human") {
+        master.gain.exponentialRampToValueAtTime(0.15, now + 0.03);
+        master.gain.exponentialRampToValueAtTime(0.001, now + 0.62);
+        [329.63, 392, 493.88].forEach((freq, index) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + index * 0.08);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.15, now + 0.04 + index * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.44 + index * 0.07);
+          osc.connect(gain);
+          gain.connect(master);
+          osc.start(now + index * 0.08);
+          osc.stop(now + 0.7);
+        });
+      }
+
+      if (type === "impostor") {
+        master.gain.exponentialRampToValueAtTime(0.20, now + 0.015);
+        master.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(58, now + 0.38);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now);
+        osc.stop(now + 0.5);
+
+        const noiseBuffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.18), audioContext.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+        const noise = audioContext.createBufferSource();
+        const noiseGain = audioContext.createGain();
+        noise.buffer = noiseBuffer;
+        noiseGain.gain.setValueAtTime(0.18, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        noise.connect(noiseGain);
+        noiseGain.connect(master);
+        noise.start(now);
+      }
+
+      if (type === "suspense") {
+        master.gain.exponentialRampToValueAtTime(0.12, now + 0.04);
+        master.gain.exponentialRampToValueAtTime(0.001, now + 1.45);
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(82, now);
+        osc.frequency.linearRampToValueAtTime(72, now + 1.3);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.12, now + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.45);
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start(now);
+        osc.stop(now + 1.5);
+      }
+    }
+
+    function tryLoadImage(img, names, index = 0) {
+      img.classList.remove("show");
+      if (index >= names.length) {
+        img.removeAttribute("src");
+        return;
+      }
+      img.onerror = () => tryLoadImage(img, names, index + 1);
+      img.onload = () => {
+        img.onerror = null;
+        requestAnimationFrame(() => img.classList.add("show"));
+      };
+      img.src = encodeURI(names[index]);
+    }
+
+    function preloadImages() {
+      characters.forEach((character) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = encodeURI(character.imageNames[0]);
+      });
+    }
+
+    function updateGameUI() {
+      const character = characters[currentIndex];
+      progressText.textContent = `Sobreviviente ${currentIndex + 1} de ${characters.length}`;
+      liveSeal.textContent = "Registro sellado";
+      meterFill.style.width = `${(currentIndex / characters.length) * 100}%`;
+
+      characterName.textContent = character.name;
+      characterAge.textContent = `${character.age} años`;
+      characterDescription.textContent = character.description;
+      characterClue.textContent = character.clue;
+
+      characterImage.className = "character-img";
+      tryLoadImage(characterImage, character.imageNames);
+
+      locked = false;
+      humanBtn.disabled = false;
+      impostorBtn.disabled = false;
+    }
+
+    function startGame() {
+      unlockAudio();
+      clearTimeout(revealTimer);
+      currentIndex = 0;
+      reviewIndex = 0;
+      choices = [];
+      locked = false;
+      showOnly(screenGame);
+      updateGameUI();
+    }
+
+    function makeChoice(playerSaidImpostor) {
+      if (locked) return;
+      locked = true;
+      humanBtn.disabled = true;
+      impostorBtn.disabled = true;
+      unlockAudio();
+
+      const character = characters[currentIndex];
+      const isCorrect = playerSaidImpostor === character.isImpostor;
+      choices.push({ ...character, playerSaidImpostor, isCorrect });
+
+      decisionFlash.className = `decision-flash active ${playerSaidImpostor ? "reject" : "safe"}`;
+      decisionFlash.querySelector("b").textContent = playerSaidImpostor ? "Acceso denegado" : "Abordaje permitido";
+
+      if (playerSaidImpostor) {
+        characterImage.classList.add("denied");
+        portraitStage.classList.add("shake");
+        playTone("impostor");
+      } else {
+        characterImage.classList.add("boarding");
+        playTone("human");
+      }
+
+      window.setTimeout(() => {
+        portraitStage.classList.remove("shake");
+        decisionFlash.className = "decision-flash";
+        currentIndex++;
+        if (currentIndex < characters.length) {
+          updateGameUI();
+        } else {
+          meterFill.style.width = "100%";
+          startReview();
+        }
+      }, 720);
+    }
+
+    function startReview() {
+      reviewIndex = 0;
+      showOnly(screenReview);
+      showReviewItem();
+    }
+
+    function cleanReason(text) {
+      return text.replace(/^(Correcto|Incorrecto)\.\s*/i, "");
+    }
+
+    function showReviewItem() {
+      clearTimeout(revealTimer);
+      unlockAudio();
+      const item = choices[reviewIndex];
+      const saidText = item.playerSaidImpostor ? "impostor" : "humano";
+
+      reviewProgress.textContent = `Revisión ${reviewIndex + 1} de ${choices.length}`;
+      reviewCounter.textContent = `Caso ${reviewIndex + 1}/${choices.length}`;
+      reviewName.textContent = item.name;
+      reviewAge.textContent = `${item.age} años`;
+      reviewChoice.innerHTML = `Dijiste que era <span>${saidText}</span>.`;
+      suspenseText.classList.remove("hidden");
+      suspenseText.textContent = "Estabas...";
+      revealBox.classList.remove("show");
+      nextReviewBtn.disabled = true;
+      nextReviewBtn.textContent = reviewIndex === choices.length - 1 ? "Cerrar reporte" : "Ver siguiente expediente";
+
+      reviewImage.className = "review-img";
+      tryLoadImage(reviewImage, item.imageNames);
+      playTone("suspense");
+
+      revealTimer = window.setTimeout(() => revealReviewItem(item), 3000);
+    }
+
+    function revealReviewItem(item) {
+      const wasCorrect = item.isCorrect;
+      const truth = item.isImpostor ? "impostor" : "humano";
+      const reason = cleanReason(item.playerSaidImpostor ? item.ifPlayerSaidImpostor : item.ifPlayerSaidHuman);
+
+      suspenseText.classList.add("hidden");
+      verdict.className = `verdict ${wasCorrect ? "correct" : "incorrect"}`;
+      verdict.textContent = wasCorrect ? "Estabas en lo correcto" : "Estabas equivocado";
+      truthTitle.innerHTML = `En realidad era <span class="${item.isImpostor ? "impostor" : "human"}">${truth}</span>.`;
+      reasonBox.textContent = reason;
+      revealBox.classList.add("show");
+      nextReviewBtn.disabled = false;
+      playTone(item.isImpostor ? "impostor" : "human");
+    }
+
+    function nextReview() {
+      if (nextReviewBtn.disabled) return;
+      reviewIndex++;
+      if (reviewIndex < choices.length) {
+        showReviewItem();
+      } else {
+        showOnly(screenEnd);
+      }
+    }
+
+    function resetToIntro() {
+      clearTimeout(revealTimer);
+      unlockAudio();
+      currentIndex = 0;
+      reviewIndex = 0;
+      choices = [];
+      locked = false;
+      showOnly(screenIntro);
+    }
+
+    startBtn.addEventListener("click", startGame);
+    restartBtn.addEventListener("click", startGame);
+    introBtn.addEventListener("click", resetToIntro);
+    humanBtn.addEventListener("click", () => makeChoice(false));
+    impostorBtn.addEventListener("click", () => makeChoice(true));
+    nextReviewBtn.addEventListener("click", nextReview);
+    window.addEventListener("load", preloadImages, { once: true });
+  </script>
+</body>
+</html>
